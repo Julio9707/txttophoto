@@ -1,0 +1,198 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <link rel="icon" href="/favicon.ico" type="image/x-icon">
+    <title>文字轉圖片</title>
+    <style>
+        body {
+            font-family: 'Arial', sans-serif;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            min-height: 100vh;
+            margin: 0;
+            background-color: #f0f0f0;
+            padding: 20px;
+        }
+        .container {
+            text-align: center;
+            background-color: #fff;
+            padding: 30px;
+            border-radius: 10px;
+            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+            width: 100%;
+            max-width: 500px;
+            display: flex;
+            flex-direction: column;
+            gap: 15px;
+        }
+        h2 {
+            color: #333;
+            margin-bottom: 5px;
+        }
+        .input-group {
+            text-align: left;
+            width: 100%;
+        }
+        .input-group label {
+            display: block;
+            margin-bottom: 5px;
+            font-weight: bold;
+        }
+        #textInput {
+            width: calc(100% - 22px);
+            height: 100px;
+            padding: 10px;
+            border: 1px solid #ccc;
+            border-radius: 5px;
+            font-size: 16px;
+            resize: vertical;
+        }
+        #imageWidth {
+            width: 100px;
+            padding: 8px;
+            border: 1px solid #ccc;
+            border-radius: 5px;
+            font-size: 16px;
+        }
+        #generateBtn, #downloadBtn {
+            padding: 12px 25px;
+            background-color: #007bff;
+            color: white;
+            border: none;
+            border-radius: 5px;
+            cursor: pointer;
+            font-size: 16px;
+            transition: background-color 0.3s ease;
+            margin-top: 10px;
+        }
+        #generateBtn:hover, #downloadBtn:hover {
+            background-color: #0056b3;
+        }
+        #downloadBtn {
+            display: none;
+            background-color: #28a745;
+        }
+        #downloadBtn:hover {
+            background-color: #218838;
+        }
+        #imageCanvas {
+            border: 2px dashed #ccc;
+            margin-top: 30px;
+            background-color: #fff;
+            display: none;
+        }
+    </style>
+</head>
+<body>
+
+<div class="container">
+    <h2>文字轉圖片</h2>
+    <div class="input-group">
+        <label for="imageWidth">設定圖片寬度 (px):</label>
+        <input type="number" id="imageWidth" value="600" min="200" max="2000">
+    </div>
+    <div class="input-group">
+        <label for="textInput">輸入文字：</label>
+        <textarea id="textInput" placeholder="請在這裡輸入文字，單行或多行皆可。"></textarea>
+    </div>
+    <button id="generateBtn">產生圖片</button>
+    <button id="downloadBtn">下載圖片</button>
+</div>
+
+<canvas id="imageCanvas"></canvas>
+
+<script>
+    const textInput = document.getElementById('textInput');
+    const imageWidthInput = document.getElementById('imageWidth');
+    const generateBtn = document.getElementById('generateBtn');
+    const downloadBtn = document.getElementById('downloadBtn');
+    const canvas = document.getElementById('imageCanvas');
+    const ctx = canvas.getContext('2d');
+
+    generateBtn.addEventListener('click', function() {
+        const text = textInput.value.trim();
+        const userWidth = parseInt(imageWidthInput.value);
+
+        if (text === '') {
+            alert('請先輸入文字！');
+            return;
+        }
+        if (isNaN(userWidth) || userWidth < 200 || userWidth > 2000) {
+            alert('請輸入有效的圖片寬度（200 到 2000 之間）');
+            return;
+        }
+
+        // --- 核心邏輯：計算所需高度並繪製 ---
+
+        const lineHeight = 40;
+        const padding = 20; // 邊距
+        const maxWidth = userWidth - (padding * 2);
+
+        // 步驟 1: 預先計算繪圖所需的總行數
+        const linesToDraw = [];
+        const paragraphs = text.split('\n');
+        
+        ctx.font = '30px Arial'; // 在計算前先設定字體，影響 measureText 的結果
+
+        paragraphs.forEach(paragraph => {
+            let tempLine = '';
+            // 修正：逐字元處理，而不是按空格分割
+            for (let i = 0; i < paragraph.length; i++) {
+                const character = paragraph[i];
+                const testLine = tempLine + character;
+                
+                if (ctx.measureText(testLine).width > maxWidth) {
+                    linesToDraw.push(tempLine);
+                    tempLine = character;
+                } else {
+                    tempLine = testLine;
+                }
+            }
+            // 處理最後剩下的文字
+            linesToDraw.push(tempLine);
+        });
+
+        const totalLines = linesToDraw.length;
+        const calculatedHeight = (totalLines * lineHeight) + (padding * 2);
+
+        // 步驟 2: 設定 canvas 尺寸並開始繪圖
+        canvas.width = userWidth;
+        canvas.height = calculatedHeight;
+        canvas.style.display = 'block';
+        downloadBtn.style.display = 'inline-block';
+
+        // 繪製背景
+        ctx.fillStyle = '#fff';
+        ctx.fillRect(0, 0, canvas.width, canvas.height);
+
+        // 重新設定文字樣式 (因 canvas 尺寸變動會重置)
+        ctx.fillStyle = '#000';
+        ctx.font = '30px Arial';
+        ctx.textAlign = 'left';
+        ctx.textBaseline = 'top';
+
+        // 步驟 3: 繪製所有預先計算好的行
+        let y = padding;
+        linesToDraw.forEach(line => {
+            ctx.fillText(line, padding, y);
+            y += lineHeight;
+        });
+    });
+
+    downloadBtn.addEventListener('click', function() {
+        const imageURL = canvas.toDataURL('image/png');
+        const a = document.createElement('a');
+        a.href = imageURL;
+        a.download = 'generated_image.png';
+        document.body.appendChild(a);
+        a.click();
+        document.body.removeChild(a);
+    });
+</script>
+
+</body>
+</html>
